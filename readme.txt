@@ -1,0 +1,32 @@
+=== MRN پرداخت ایران ===
+Contributors: mehran-mrn
+Tags: woocommerce, iran, payment, gateway, installment, bnpl
+Requires at least: 6.4
+Tested up to: 6.8
+Requires PHP: 7.4
+Stable tag: 1.0.0
+License: GPLv2 or later
+
+زیرساخت حرفه‌ای پرداخت آنلاین و اقساطی ایران برای WooCommerce.
+
+== Description ==
+
+MRN پرداخت ایران یک درگاه یکپارچه برای سرویس‌های آنلاین و BNPL است. افزونه دارای
+اتصال‌های آماده، آداپتور REST منعطف، دفتر تراکنش، credential رمز‌شده، Checkout
+Blocks و پنل مدیریت RTL است.
+
+اتصال‌های آماده: زرین‌پال، زیبال، وندار، پی‌پینگ، سپال و آقای پرداخت.
+
+== Installation ==
+
+1. پوشه افزونه را در wp-content/plugins بارگذاری کنید.
+2. افزونه و WooCommerce را فعال کنید.
+3. از منوی «MRN پرداخت» یک سرویس را پیکربندی و فعال کنید.
+4. در تنظیمات پرداخت WooCommerce، MRN پرداخت ایران را فعال نگه دارید.
+
+== Changelog ==
+
+= 1.0.0 =
+* انتشار نخست
+* شش اتصال پرداخت آنلاین و دو اتصال REST منعطف
+* Checkout کلاسیک و Blocks، HPOS، ثبت تراکنش و پنل RTL
