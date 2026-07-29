@@ -54,6 +54,59 @@ abstract class AbstractGateway implements GatewayInterface {
 		return $data;
 	}
 
+	protected function get( $url, array $headers = array() ) {
+		$response = wp_safe_remote_get(
+			esc_url_raw( $url ),
+			array(
+				'timeout'     => 15,
+				'redirection' => 2,
+				'headers'     => $headers,
+			)
+		);
+		return $this->decode_response( $response );
+	}
+
+	protected function post_scalar( $url, array $body, array $headers = array(), $json = false ) {
+		$args = array(
+			'timeout'     => 15,
+			'redirection' => 2,
+			'headers'     => $headers,
+			'body'        => $json ? wp_json_encode( $body ) : $body,
+			'data_format' => 'body',
+		);
+		if ( $json ) {
+			$args['headers']['Content-Type'] = 'application/json';
+			$args['headers']['Accept']       = 'application/json';
+		}
+		$response = wp_safe_remote_post( esc_url_raw( $url ), $args );
+		if ( is_wp_error( $response ) ) {
+			throw new \RuntimeException( sanitize_text_field( $response->get_error_message() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$raw  = trim( (string) wp_remote_retrieve_body( $response ) );
+		if ( $code < 200 || $code >= 300 ) {
+			throw new \RuntimeException( sprintf( 'درگاه با کد HTTP %d پاسخ داد.', $code ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+		return sanitize_text_field( trim( $raw, "\" \t\n\r\0\x0B" ) );
+	}
+
+	private function decode_response( $response ) {
+		if ( is_wp_error( $response ) ) {
+			throw new \RuntimeException( sanitize_text_field( $response->get_error_message() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$raw  = (string) wp_remote_retrieve_body( $response );
+		$data = '' === trim( $raw ) ? array() : json_decode( $raw, true );
+		if ( ! is_array( $data ) ) {
+			throw new \RuntimeException( sprintf( 'پاسخ نامعتبر از درگاه دریافت شد (HTTP %d).', $code ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+		if ( $code < 200 || $code >= 300 ) {
+			$message = $this->message_from_response( $data );
+			throw new \RuntimeException( $message ? $message : sprintf( 'درگاه با کد HTTP %d پاسخ داد.', $code ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+		return $data;
+	}
+
 	protected function message_from_response( array $response ) {
 		foreach ( array( 'message', 'error_message', 'error', 'description' ) as $key ) {
 			if ( isset( $response[ $key ] ) && is_scalar( $response[ $key ] ) ) {

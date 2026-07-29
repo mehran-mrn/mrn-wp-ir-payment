@@ -17,16 +17,18 @@ final class CustomRestGateway extends AbstractGateway {
 		$variables = $this->variables( $request );
 		$body      = $this->template( $this->config['request_template'], $variables );
 		$data      = $this->post(
-			$this->config['request_url'],
+			$this->replace( $this->config['request_url'], $variables ),
 			$body,
-			$this->headers()
+			$this->headers( $variables ),
+			'form' !== ( isset( $this->config['request_format'] ) ? $this->config['request_format'] : 'json' )
 		);
 		$authority = $this->path( $data, $this->config['authority_path'] );
 		if ( '' === (string) $authority ) {
 			$message = $this->message_from_response( $data );
 			throw new \RuntimeException( $message ? $message : 'سرویس شناسه پرداخت صادر نکرد.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Provider message is sanitized.
 		}
-		$redirect = str_replace( '{{authority}}', rawurlencode( (string) $authority ), $this->config['redirect_url'] );
+		$variables['authority'] = rawurlencode( (string) $authority );
+		$redirect               = $this->replace( $this->config['redirect_url'], $variables );
 		return PaymentResult::requested( $authority, $redirect, $data );
 	}
 
@@ -39,7 +41,12 @@ final class CustomRestGateway extends AbstractGateway {
 			}
 		}
 		$body    = $this->template( $this->config['verify_template'], $variables );
-		$data    = $this->post( $this->config['verify_url'], $body, $this->headers() );
+		$data    = $this->post(
+			$this->replace( $this->config['verify_url'], $variables ),
+			$body,
+			$this->headers( $variables ),
+			'form' !== ( isset( $this->config['request_format'] ) ? $this->config['request_format'] : 'json' )
+		);
 		$status  = (string) $this->path( $data, $this->config['success_path'] );
 		$success = array_map( 'trim', explode( ',', $this->config['success_values'] ) );
 		if ( in_array( $status, $success, true ) ) {
@@ -51,8 +58,20 @@ final class CustomRestGateway extends AbstractGateway {
 		return PaymentResult::failed( $message ? $message : 'پرداخت توسط سرویس تأیید نشد.', $status, $data );
 	}
 
-	private function headers() {
+	private function headers( array $variables ) {
 		$headers = array();
+		if ( ! empty( $this->config['headers_template'] ) ) {
+			$template = $this->replace( $this->config['headers_template'], $variables );
+			$decoded  = json_decode( $template, true );
+			if ( ! is_array( $decoded ) ) {
+				throw new \RuntimeException( 'قالب JSON هدرهای درگاه معتبر نیست.' );
+			}
+			foreach ( $decoded as $key => $value ) {
+				if ( is_scalar( $value ) ) {
+					$headers[ sanitize_text_field( $key ) ] = sanitize_text_field( (string) $value );
+				}
+			}
+		}
 		if ( ! empty( $this->config['auth_header'] ) && ! empty( $this->config['auth_token'] ) ) {
 			$headers[ $this->config['auth_header'] ] = $this->config['auth_token'];
 		}
@@ -60,7 +79,7 @@ final class CustomRestGateway extends AbstractGateway {
 	}
 
 	private function variables( PaymentRequest $request ) {
-		return array(
+		$variables = array(
 			'transaction_id' => $request->transaction_id,
 			'order_id'       => (string) $request->order_id,
 			'amount_toman'   => (string) $request->amount_toman,
@@ -70,6 +89,12 @@ final class CustomRestGateway extends AbstractGateway {
 			'mobile'         => $request->mobile,
 			'email'          => $request->email,
 		);
+		foreach ( $this->config as $key => $value ) {
+			if ( is_scalar( $value ) ) {
+				$variables[ 'config.' . sanitize_key( $key ) ] = (string) $value;
+			}
+		}
+		return $variables;
 	}
 
 	private function template( $json, array $variables ) {
@@ -93,8 +118,12 @@ final class CustomRestGateway extends AbstractGateway {
 		if ( preg_match( '/^\{\{([^}]+)\}\}$/', $value, $match ) && isset( $variables[ $match[1] ] ) && is_numeric( $variables[ $match[1] ] ) ) {
 			return (int) $variables[ $match[1] ];
 		}
+		return $this->replace( $value, $variables );
+	}
+
+	private function replace( $value, array $variables ) {
 		foreach ( $variables as $key => $replacement ) {
-			$value = str_replace( '{{' . $key . '}}', (string) $replacement, $value );
+			$value = str_replace( '{{' . $key . '}}', (string) $replacement, (string) $value );
 		}
 		return $value;
 	}

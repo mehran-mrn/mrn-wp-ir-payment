@@ -177,18 +177,36 @@ final class Admin {
 	}
 
 	private function gateways() {
+		$definitions = Registry::definitions();
+		$native      = array_filter(
+			$definitions,
+			static function ( $definition ) {
+				return 'native' === ( isset( $definition['implementation'] ) ? $definition['implementation'] : '' );
+			}
+		);
 		?>
-		<section class="mrn-ir-section-head"><div><h2>درگاه‌ها و سرویس‌های اعتباری</h2><p>اتصال‌های آماده و آداپتورهای منعطف قراردادهای سازمانی</p></div></section>
+		<section class="mrn-ir-section-head"><div><h2>درگاه‌ها و سرویس‌های اعتباری</h2><p><?php echo esc_html( count( $definitions ) ); ?> اتصال در کاتالوگ؛ <?php echo esc_html( count( $native ) ); ?> درگاه با پروتکل داخلی و سایر سرویس‌ها با موتور قرارداد API</p></div></section>
+		<div class="mrn-ir-gateway-toolbar">
+			<label class="mrn-ir-search"><span class="dashicons dashicons-search"></span><input type="search" id="mrn-ir-gateway-search" placeholder="جست‌وجوی نام درگاه یا سرویس…"></label>
+			<div class="mrn-ir-filter-chips" role="group" aria-label="فیلتر نوع درگاه">
+				<button type="button" class="active" data-filter="all">همه <b><?php echo esc_html( count( $definitions ) ); ?></b></button>
+				<button type="button" data-filter="online">پرداخت‌یار</button>
+				<button type="button" data-filter="bank">بانکی</button>
+				<button type="button" data-filter="installment">اقساطی</button>
+				<button type="button" data-filter="card">کارت به کارت</button>
+			</div>
+		</div>
 		<div class="mrn-ir-gateway-grid">
-			<?php foreach ( Registry::definitions() as $slug => $definition ) : ?>
+			<?php foreach ( $definitions as $slug => $definition ) : ?>
 				<?php
 				$config     = $this->settings->provider( $slug, false );
 				$configured = Registry::is_configured( $slug, $this->settings->provider( $slug ) );
+				$search     = $slug . ' ' . $definition['name'] . ' ' . $definition['description'];
 				?>
-				<article class="mrn-ir-gateway-card <?php echo ! empty( $config['enabled'] ) ? 'is-enabled' : ''; ?>" style="--accent:<?php echo esc_attr( $definition['accent'] ); ?>">
+				<article class="mrn-ir-gateway-card <?php echo ! empty( $config['enabled'] ) ? 'is-enabled' : ''; ?>" data-group="<?php echo esc_attr( isset( $definition['group'] ) ? $definition['group'] : $definition['mode'] ); ?>" data-search="<?php echo esc_attr( $search ); ?>" style="--accent:<?php echo esc_attr( $definition['accent'] ); ?>">
 					<div class="mrn-ir-gateway-summary">
 						<span class="mrn-ir-logo"><?php echo esc_html( mb_substr( $definition['name'], 0, 1 ) ); ?></span>
-						<div class="mrn-ir-gateway-title"><span class="mrn-ir-badge <?php echo 'installment' === $definition['mode'] ? 'installment' : ''; ?>"><?php echo 'installment' === $definition['mode'] ? 'اقساطی' : 'آنلاین'; ?></span><h3><?php echo esc_html( $definition['name'] ); ?></h3><p><?php echo esc_html( $definition['description'] ); ?></p></div>
+						<div class="mrn-ir-gateway-title"><div class="mrn-ir-gateway-labels"><span class="mrn-ir-badge <?php echo 'installment' === $definition['mode'] ? 'installment' : ''; ?>"><?php echo 'installment' === $definition['mode'] ? 'اقساطی' : 'آنلاین'; ?></span><span class="mrn-ir-badge protocol"><?php echo 'native' === $definition['implementation'] ? 'اتصال داخلی' : ( 'preset' === $definition['implementation'] ? 'API آماده' : 'قراردادی' ); ?></span></div><h3><?php echo esc_html( $definition['name'] ); ?></h3><p><?php echo esc_html( $definition['description'] ); ?></p></div>
 						<button type="button" class="mrn-ir-expand" aria-expanded="false"><span class="dashicons dashicons-arrow-down-alt2"></span></button>
 					</div>
 					<div class="mrn-ir-capabilities">
@@ -220,6 +238,7 @@ final class Admin {
 				</article>
 			<?php endforeach; ?>
 		</div>
+		<div class="mrn-ir-empty mrn-ir-gateway-empty" hidden><span class="dashicons dashicons-search"></span><h4>درگاهی با این فیلتر پیدا نشد</h4><p>عبارت جست‌وجو یا نوع سرویس را تغییر دهید.</p></div>
 		<?php
 	}
 
@@ -370,9 +389,13 @@ final class Admin {
 		if ( ! $configured ) {
 			wp_send_json_error( array( 'message' => 'فیلدهای الزامی هنوز کامل نشده‌اند.' ) );
 		}
-		if ( in_array( $slug, array( 'custom_online', 'custom_bnpl' ), true ) ) {
+		$definition = Registry::definition( $slug );
+		if ( 'native' !== ( isset( $definition['implementation'] ) ? $definition['implementation'] : 'contract' ) ) {
 			if ( ! is_array( json_decode( $config['request_template'], true ) ) || ! is_array( json_decode( $config['verify_template'], true ) ) ) {
 				wp_send_json_error( array( 'message' => 'یکی از قالب‌های JSON معتبر نیست.' ) );
+			}
+			if ( ! empty( $config['headers_template'] ) && ! is_array( json_decode( $config['headers_template'], true ) ) ) {
+				wp_send_json_error( array( 'message' => 'قالب JSON هدرها معتبر نیست.' ) );
 			}
 		}
 		wp_send_json_success( array( 'message' => 'پیکربندی کامل و آماده‌ی استفاده است.' ) );

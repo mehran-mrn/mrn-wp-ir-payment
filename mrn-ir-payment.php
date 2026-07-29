@@ -3,7 +3,7 @@
  * Plugin Name:       MRN پرداخت ایران
  * Plugin URI:        https://github.com/mehran-mrn/mrn-wp-ir-payment
  * Description:       زیرساخت حرفه‌ای پرداخت آنلاین و اقساطی ایران برای ووکامرس، با مسیریابی هوشمند و گزارش تراکنش.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * WC requires at least: 8.0
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MRN_IR_PAYMENT_VERSION', '1.0.0' );
+define( 'MRN_IR_PAYMENT_VERSION', '1.1.0' );
 define( 'MRN_IR_PAYMENT_FILE', __FILE__ );
 define( 'MRN_IR_PAYMENT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MRN_IR_PAYMENT_URL', plugin_dir_url( __FILE__ ) );

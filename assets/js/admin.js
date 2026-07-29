@@ -1,7 +1,45 @@
 (function () {
 	'use strict';
 
+	var gatewayFilter = 'all';
+	var gatewaySearch = '';
+
+	function filterGateways() {
+		var visible = 0;
+		document.querySelectorAll('.mrn-ir-gateway-card').forEach(function (card) {
+			var groupMatch = gatewayFilter === 'all' || card.dataset.group === gatewayFilter;
+			var textMatch = !gatewaySearch || (card.dataset.search || '').toLocaleLowerCase('fa-IR').indexOf(gatewaySearch) !== -1;
+			var show = groupMatch && textMatch;
+			card.hidden = !show;
+			if (show) {
+				visible += 1;
+			}
+		});
+		var empty = document.querySelector('.mrn-ir-gateway-empty');
+		if (empty) {
+			empty.hidden = visible !== 0;
+		}
+	}
+
+	var gatewaySearchInput = document.getElementById('mrn-ir-gateway-search');
+	if (gatewaySearchInput) {
+		gatewaySearchInput.addEventListener('input', function () {
+			gatewaySearch = gatewaySearchInput.value.trim().toLocaleLowerCase('fa-IR');
+			filterGateways();
+		});
+	}
+
 	document.addEventListener('click', function (event) {
+		var filter = event.target.closest('.mrn-ir-filter-chips button');
+		if (filter) {
+			document.querySelectorAll('.mrn-ir-filter-chips button').forEach(function (button) {
+				button.classList.toggle('active', button === filter);
+			});
+			gatewayFilter = filter.dataset.filter;
+			filterGateways();
+			return;
+		}
+
 		var expand = event.target.closest('.mrn-ir-expand');
 		if (expand) {
 			var card = expand.closest('.mrn-ir-gateway-card');

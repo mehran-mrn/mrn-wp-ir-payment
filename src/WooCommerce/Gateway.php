@@ -193,6 +193,21 @@ class Gateway extends \WC_Payment_Gateway {
 		if ( ! $order ) {
 			wp_die( esc_html__( 'سفارش مرتبط با تراکنش پیدا نشد.', 'mrn-ir-payment' ), 404 );
 		}
+			$relay = isset( $_GET['mrn_relay'] ) ? sanitize_key( wp_unslash( $_GET['mrn_relay'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- URL HMAC is verified above.
+		if ( 'asanpardakht' === $relay && 'asanpardakht' === $tx->provider ) {
+			$token = isset( $_GET['token'] ) ? sanitize_text_field( wp_unslash( $_GET['token'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- URL HMAC is verified above.
+			if ( ! $token || ! hash_equals( (string) $tx->authority, $token ) ) {
+				wp_die( esc_html__( 'توکن انتقال پرداخت معتبر نیست.', 'mrn-ir-payment' ), 403 );
+			}
+			$this->render_post_relay( 'https://asan.shaparak.ir', array( 'RefId' => $token ) );
+		}
+		if ( 'saman' === $relay && 'saman' === $tx->provider ) {
+			$token = isset( $_GET['token'] ) ? sanitize_text_field( wp_unslash( $_GET['token'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- URL HMAC is verified above.
+			if ( ! $token || ! hash_equals( (string) $tx->authority, $token ) ) {
+				wp_die( esc_html__( 'توکن انتقال پرداخت معتبر نیست.', 'mrn-ir-payment' ), 403 );
+			}
+			$this->render_post_relay( 'https://sep.shaparak.ir/OnlinePG/OnlinePG', array( 'Token' => $token ) );
+		}
 		if ( 'paid' === $tx->status || $order->is_paid() ) {
 			wc_add_notice( 'این پرداخت قبلاً با موفقیت ثبت شده است.', 'notice' );
 			$this->redirect_to_order( $order );
@@ -325,6 +340,18 @@ class Gateway extends \WC_Payment_Gateway {
 
 	private function redirect_to_order( \WC_Order $order ) {
 		wp_safe_redirect( $order->is_paid() ? $this->get_return_url( $order ) : $order->get_checkout_payment_url() );
+		exit;
+	}
+
+	private function render_post_relay( $url, array $fields ) {
+		nocache_headers();
+		echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>انتقال به درگاه</title>';
+		echo '<style>body{align-items:center;background:#f4f5f8;color:#172033;display:flex;font-family:Tahoma,sans-serif;justify-content:center;margin:0;min-height:100vh}.box{background:#fff;border:1px solid #e6e8ef;border-radius:18px;box-shadow:0 18px 50px rgba(23,32,51,.1);max-width:420px;padding:34px;text-align:center}.spin{animation:r 1s linear infinite;border:3px solid #e4e1ff;border-top-color:#5b4ef1;border-radius:50%;height:38px;margin:0 auto 18px;width:38px}@keyframes r{to{transform:rotate(360deg)}}p{color:#71798b;line-height:1.9}</style></head><body><div class="box"><div class="spin"></div><strong>در حال انتقال امن به درگاه…</strong><p>لطفاً این صفحه را نبندید.</p>';
+		echo '<form id="mrn-ir-relay" method="post" action="' . esc_url( $url ) . '">';
+		foreach ( $fields as $key => $value ) {
+			echo '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
+		}
+		echo '<noscript><button type="submit">ادامه پرداخت</button></noscript></form></div><script>document.getElementById("mrn-ir-relay").submit();</script></body></html>';
 		exit;
 	}
 }
